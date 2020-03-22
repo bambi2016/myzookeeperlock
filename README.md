@@ -6,15 +6,8 @@ zookeeper实现分布式锁</p>
 启动测试ok
 
 
-import org.apache.zookeeper.*;
-import org.apache.zookeeper.data.Stat;
 
-import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-
-public class MyzookeeperLock implements Lock {
+    public class MyzookeeperLock implements Lock {
     private String address = "192.168.1.131:2181,192.168.1.122:2181,192.168.1.133:2181";
     private int timeout = 4000;
     private ZooKeeper zooKeeper;
@@ -24,7 +17,6 @@ public class MyzookeeperLock implements Lock {
     private String path = "child";
     private String before;
     private CountDownLatch downLatch = new CountDownLatch(1);
-
     public MyzookeeperLock() {
     }
 
