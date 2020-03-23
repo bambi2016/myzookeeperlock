@@ -103,6 +103,7 @@ public class MyzookeeperLock implements Lock {
                 }
             }
         });
+        //说明刚才还有，现在被删了
         if (exists == null) {
             return;
         }
