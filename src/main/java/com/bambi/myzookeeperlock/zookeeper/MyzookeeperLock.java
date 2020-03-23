@@ -2,6 +2,8 @@ package com.bambi.myzookeeperlock.zookeeper;
 
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -9,6 +11,8 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 public class MyzookeeperLock implements Lock {
+    private static Logger logger = LoggerFactory.getLogger(MyzookeeperLock.class);
+
     private String address = "192.168.1.131:2181,192.168.1.122:2181,192.168.1.133:2181";
     private int timeout = 4000;
     private ZooKeeper zooKeeper;
@@ -17,6 +21,8 @@ public class MyzookeeperLock implements Lock {
     private String separator = "/";
     private String path = "child";
     private String before;
+    //我看其他人写了latch这个变量，但个人觉得这个可以不要
+    private CountDownLatch latch = new CountDownLatch(1);
     private CountDownLatch downLatch = new CountDownLatch(1);
 
     public MyzookeeperLock() {
@@ -41,20 +47,26 @@ public class MyzookeeperLock implements Lock {
     }
 
 
-    private void connection() throws IOException {
+    private void connection() throws IOException, InterruptedException {
         zooKeeper = new ZooKeeper(address, timeout, new Watcher() {
             @Override
             public void process(WatchedEvent event) {
-                System.out.println("事件类型："+event.getType());
+                logger.debug("事件类型："+event.getType());
+                if (event.getState().equals(Event.KeeperState.SyncConnected)) {
+                    latch.countDown();
+                }
+
             }
         });
+        logger.debug("创建zooKeeper连接成功");
+        latch.await();
         try {
             //如果父节点不存在，则创建父节点
             Stat exists = zooKeeper.exists(parent, false);
-            System.out.println("父节点是否存在：" + exists);
+            logger.debug("父节点是否存在：" + exists);
             if (exists == null) {
                 String persistent = zooKeeper.create(parent, null, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
-                System.out.println("创建父节点成功:" + persistent);
+                logger.debug("创建父节点成功:" + persistent);
             }
         } catch (KeeperException e) {
             e.printStackTrace();
@@ -67,7 +79,7 @@ public class MyzookeeperLock implements Lock {
     private void waittolock() throws KeeperException, InterruptedException {
         //1、创建临时序列节点
         ephemeral_sequential = zooKeeper.create(parent + separator + path, null, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL_SEQUENTIAL);
-        System.out.println("创建成功：" + ephemeral_sequential);
+        logger.debug("创建成功：" + ephemeral_sequential);
         //2、判断该节点是否是排第一的节点
         List<String> children = zooKeeper.getChildren(parent, false);
         //如果为空或者长度为零直接返回（事实上这种情况不可能发生）
